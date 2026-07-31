@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Tracking Dashboard | Teams Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f17;
+            --card-bg: #151c28;
+            --card-back-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent: #3b82f6;
+            --border: #232d3f;
+            --badge-green: rgba(16, 185, 129, 0.2);
+            --badge-green-text: #10b981;
+            --badge-orange: rgba(245, 158, 11, 0.2);
+            --badge-orange-text: #f59e0b;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --card-back-bg: #f8fafc;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --accent: #2563eb;
+            --border: #e2e8f0;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+        }
+
+        * { box-sizing: border-box; transition: background-color 0.3s, border-color 0.3s; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 25px; }
+        .container { max-width: 1500px; margin: 0 auto; }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
+        h1 { font-size: 2rem; font-weight: 900; margin: 0; background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .theme-btn {
+            background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border);
+            padding: 10px 18px; border-radius: 12px; font-weight: 700; cursor: pointer;
+            box-shadow: var(--shadow);
+        }
+
+        .loader-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: var(--bg-color); display: flex; flex-direction: column; justify-content: center;
+            align-items: center; font-size: 1.3rem; font-weight: 800; z-index: 999;
+            color: var(--accent); gap: 15px;
+        }
+
+        .controls {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;
+            background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--border);
+            margin-bottom: 25px; box-shadow: var(--shadow);
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 0.75rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; }
+        input, select {
+            background: var(--bg-color); border: 1px solid var(--border); color: var(--text-main);
+            padding: 10px; border-radius: 10px; font-size: 0.85rem; outline: none; font-weight: 600;
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .kpi-card { background: var(--card-bg); border: 1px solid var(--border); padding: 20px; border-radius: 16px; box-shadow: var(--shadow); }
+        .kpi-title { font-size: 0.8rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px; }
+        .kpi-value { font-size: 2rem; font-weight: 900; color: var(--accent); }
+
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
+
+        .flip-card {
+            background-color: transparent; width: 100%; height: 330px;
+            perspective: 1000px; cursor: pointer;
+        }
+        .flip-card-inner {
+            position: relative; width: 100%; height: 100%; text-align: left;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+
+        .card-front, .card-back {
+            position: absolute; width: 100%; height: 100%;
+            -webkit-backface-visibility: hidden; backface-visibility: hidden;
+            border-radius: 16px; border: 1px solid var(--border); padding: 20px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            box-shadow: var(--shadow);
+        }
+
+        .card-front { background: var(--card-bg); }
+        .card-back { background: var(--card-back-bg); transform: rotateY(180deg); overflow-y: auto; }
+
+        .supplier-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+        .supplier-name { font-size: 1.2rem; font-weight: 800; color: var(--text-main); word-break: break-word; }
+        .team-badge { font-size: 0.7rem; font-weight: 800; padding: 4px 10px; border-radius: 20px; background: rgba(59,130,246,0.15); color: var(--accent); border: 1px solid var(--accent); white-space: nowrap; }
+
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem; }
+        .info-label { color: var(--text-sub); font-weight: 600; }
+        .info-val { color: var(--text-main); font-weight: 700; text-align: right; }
+
+        .status-pill {
+            display: inline-block; padding: 3px 8px; border-radius: 6px;
+            font-size: 0.75rem; font-weight: 800; text-transform: uppercase;
+        }
+        .status-yes { background: var(--badge-green); color: var(--badge-green-text); }
+        .status-no { background: var(--badge-orange); color: var(--badge-orange-text); }
+
+        .flip-hint { font-size: 0.75rem; color: var(--accent); font-weight: 700; text-align: center; margin-top: 8px; }
+        .details-title { font-size: 0.95rem; font-weight: 800; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; color: var(--accent); }
+    </style>
+</head>
+<body>
+
+<div id="loader" class="loader-overlay">
+    <div>Загрузка данных из 3-х команд...</div>
+    <div style="font-size: 0.9rem; color: var(--text-sub);" id="loaderStatus">Связываемся со скриптами...</div>
+</div>
+
+<div class="container">
+    <header>
+        <h1>Мониторинг Поставщиков</h1>
+        <button class="theme-btn" onclick="toggleTheme()">🌓 Сменить тему</button>
+    </header>
+
+    <div class="controls">
+        <div class="filter-group">
+            <label>Месяц (Лист)</label>
+            <select id="sheetFilter" onchange="applyFilters()"><option value="all">Все месяцы</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Команда</label>
+            <select id="teamFilter" onchange="applyFilters()">
+                <option value="all">Все Команды</option>
+                <option value="Samurai team">Samurai team</option>
+                <option value="Mozz team">Mozz team</option>
+                <option value="Gerille team">Gerille team</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Сотрудник</label>
+            <select id="employeeFilter" onchange="applyFilters()"><option value="all">Все</option></select>
+        </div>
+        <div class="filter-group">
+            <label>ГЕО</label>
+            <select id="geoFilter" onchange="applyFilters()"><option value="all">Все</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Трафик</label>
+            <select id="sourceFilter" onchange="applyFilters()"><option value="all">Все</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Поиск поставщика</label>
+            <input type="text" id="searchInput" placeholder="Имя..." oninput="applyFilters()">
+        </div>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-title">Всего Поставщиков</div><div class="kpi-value" id="kpiTotal">0</div></div>
+        <div class="kpi-card"><div class="kpi-title">Verified (Верифицированы)</div><div class="kpi-value" id="kpiVerified">0</div></div>
+        <div class="kpi-card"><div class="kpi-title">Approved (Одобрены)</div><div class="kpi-value" id="kpiApproved">0</div></div>
+        <div class="kpi-card"><div class="kpi-title">Активных сотрудников</div><div class="kpi-value" id="kpiStaff">0</div></div>
+    </div>
+
+    <div class="cards-grid" id="suppliersGrid"></div>
+</div>
+
+<script>
+// ССЫЛКИ НА ТВОИ СКРИПТЫ КОМАНД
+const TEAMS_SOURCES = [
+    { name: 'Samurai team', url: 'https://script.google.com/macros/s/AKfycbxA3-f--3Df5o14i0WcCDkEHJPLP_NDnkPiIQY3QVrkx1qJlq_rtpkUXdzKvmC2HNjVKA/exec' },
+    { name: 'Mozz team', url: 'https://script.google.com/macros/s/AKfycbyXdACbcPRthnFgw7_JuDSsS7KI0pDUR4PfIfI9gkqaBmkDJfwylovHzo6cHUvV8g1hVg/exec' },
+    { name: 'Gerille team', url: 'https://script.google.com/macros/s/AKfycbzkXgpifTUhydAUananHcP1y_IRGyHQBLyOz2HP8idgfcFKWDfh0EQcWSzaXeHlBOLvNA/exec' }
+];
+
+let allData = [];
+
+async function loadData() {
+    const loaderStatus = document.getElementById('loaderStatus');
+    const allSheets = new Set();
+
+    for (const team of TEAMS_SOURCES) {
+        try {
+            loaderStatus.innerText = `Загружаем: ${team.name}...`;
+            const response = await fetch(team.url);
+            const json = await response.json();
+
+            // Присваиваем имя команды
+            const teamData = (json.data || []).map(row => ({
+                ...row,
+                team: team.name
+            }));
+
+            allData.push(...teamData);
+
+            // Собираем месяцы
+            if (json.sheets) {
+                json.sheets.forEach(s => allSheets.add(s));
+            }
+        } catch (e) {
+            console.error(`Ошибка при загрузке данных для ${team.name}:`, e);
+        }
+    }
+
+    // Заполняем фильтр месяцев
+    const sheetFilter = document.getElementById('sheetFilter');
+    Array.from(allSheets).sort().forEach(s => {
+        sheetFilter.innerHTML += `<option value="${s}">${s}</option>`;
+    });
+
+    initFilters();
+    applyFilters();
+    document.getElementById('loader').style.display = 'none';
+}
+
+function toggleTheme() {
+    const root = document.documentElement;
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+}
+
+function initFilters() {
+    const emps = [...new Set(allData.map(d => d.employee))].filter(Boolean).sort();
+    const geos = [...new Set(allData.map(d => d.geo))].filter(Boolean).sort();
+    const sources = [...new Set(allData.map(d => d.source))].filter(Boolean).sort();
+
+    fillSelect('employeeFilter', emps);
+    fillSelect('geoFilter', geos);
+    fillSelect('sourceFilter', sources);
+}
+
+function fillSelect(id, items) {
+    const el = document.getElementById(id);
+    items.forEach(item => { el.innerHTML += `<option value="${item}">${item}</option>`; });
+}
+
+function applyFilters() {
+    const sheet = document.getElementById('sheetFilter').value;
+    const team = document.getElementById('teamFilter').value;
+    const emp = document.getElementById('employeeFilter').value;
+    const geo = document.getElementById('geoFilter').value;
+    const source = document.getElementById('sourceFilter').value;
+    const search = document.getElementById('searchInput').value.toLowerCase();
+
+    const filtered = allData.filter(d => {
+        const matchSheet = sheet === 'all' || d.sheetName === sheet;
+        const matchTeam = team === 'all' || d.team === team;
+        const matchEmp = emp === 'all' || d.employee === emp;
+        const matchGeo = geo === 'all' || d.geo === geo;
+        const matchSource = source === 'all' || d.source === source;
+        const matchSearch = (d.supplier || '').toString().toLowerCase().includes(search);
+        return matchSheet && matchTeam && matchEmp && matchGeo && matchSource && matchSearch;
+    });
+
+    renderKPIs(filtered);
+    renderCards(filtered);
+}
+
+function renderKPIs(data) {
+    document.getElementById('kpiTotal').innerText = data.length;
+    document.getElementById('kpiVerified').innerText = data.filter(d => (d.verified||'').toString().toLowerCase() === 'да').length;
+    document.getElementById('kpiApproved').innerText = data.filter(d => (d.approved||'').toString().toLowerCase() === 'да').length;
+    document.getElementById('kpiStaff').innerText = new Set(data.map(d => d.employee)).size;
+}
+
+function renderCards(data) {
+    const grid = document.getElementById('suppliersGrid');
+    grid.innerHTML = '';
+
+    data.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'flip-card';
+        card.onclick = () => card.classList.toggle('flipped');
+
+        card.innerHTML = `
+            <div class="flip-card-inner">
+                <div class="card-front">
+                    <div>
+                        <div class="supplier-header">
+                            <div class="supplier-name">${item.supplier || 'Без имени'}</div>
+                            <span class="team-badge">${item.team}</span>
+                        </div>
+                        <div class="info-row"><span class="info-label">Дата передачи:</span><span class="info-val">${item.date || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">Сотрудник:</span><span class="info-val">${item.employee || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">ГЕО:</span><span class="info-val">${item.geo || '-'}</span></div>
+                        <div class="info-row"><span class="info-label">Источник:</span><span class="info-val">${item.source || '-'}</span></div>
+                    </div>
+                    <div>
+                        <div class="info-row">
+                            <span class="info-label">Verified:</span>
+                            <span class="status-pill ${item.verified === 'Да' ? 'status-yes' : 'status-no'}">${item.verified || '-'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Approved:</span>
+                            <span class="status-pill ${item.approved === 'Да' ? 'status-yes' : 'status-no'}">${item.approved || '-'}</span>
+                        </div>
+                        <div class="flip-hint">🔄 Нажмите, чтобы перевернуть</div>
+                    </div>
+                </div>
+
+                <div class="card-back">
+                    <div class="details-title">Детали (${item.sheetName || 'Лист'})</div>
+                    <div class="info-row"><span class="info-label">Кому передан:</span><span class="info-val">${item.transferredTo || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">План / Препей:</span><span class="info-val">${item.plan || '-'} / ${item.prepay || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">% ЗП:</span><span class="info-val">${item.percent || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">Lead:</span><span class="info-val">${item.lead || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">Счета:</span><span class="info-val">${item.bills || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">Подтвержден бизнес:</span><span class="info-val">${item.verifiedBiz || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">№ Кампании:</span><span class="info-val">${item.campaign || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">Асана:</span><span class="info-val">${item.asana || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">Время:</span><span class="info-val">${item.time || '-'}</span></div>
+                    <div class="info-row"><span class="info-label">Пруфы:</span><span class="info-val">${item.proofs || '-'}</span></div>
+                    <div class="flip-hint" style="margin-top:15px;">🔄 Нажмите, чтобы вернуть</div>
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+loadData();
+</script>
+</body>
+</html>
