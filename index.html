@@ -160,30 +160,53 @@
 </div>
 
 <script>
-// ТВОЯ НОВАЯ ССЫЛКА ДЛЯ GERILLE TEAM
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzInmHoPrrpfVStOmt-QZGliNEKeSnkcmmNA3lVIzA3RGRZR9n2ZnQi5h8EJXr1FRBtCQ/exec';
 
 let allData = [];
+
+function fetchJSONP(url) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
+        
+        const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('Таймаут загрузки (Google не ответил)'));
+        }, 12000);
+
+        function cleanup() {
+            clearTimeout(timeout);
+            if (window[callbackName]) delete window[callbackName];
+            if (script.parentNode) script.parentNode.removeChild(script);
+        }
+
+        window[callbackName] = function(data) {
+            cleanup();
+            resolve(data);
+        };
+
+        const script = document.createElement('script');
+        script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + callbackName;
+        script.onerror = function() {
+            cleanup();
+            reject(new Error('Ошибка сети при загрузке скрипта'));
+        };
+
+        document.body.appendChild(script);
+    });
+}
 
 async function loadData() {
     const loaderStatus = document.getElementById('loaderStatus');
     const loader = document.getElementById('loader');
 
     try {
-        const response = await fetch(SCRIPT_URL, { redirect: 'follow' });
-        
-        if (!response.ok) {
-            throw new Error(`Ошибка HTTP: ${response.status}`);
-        }
-        
-        const json = await response.json();
+        const json = await fetchJSONP(SCRIPT_URL);
         
         allData = (json.data || []).map(row => ({
             ...row,
             team: 'Gerille team'
         }));
 
-        // Заполняем месяцы
         const sheetFilter = document.getElementById('sheetFilter');
         sheetFilter.innerHTML = '<option value="all">Все месяцы</option>';
         if (json.sheets) {
@@ -197,8 +220,8 @@ async function loadData() {
         loader.style.display = 'none';
 
     } catch (e) {
-        console.error(" Ошибка загрузки:", e);
-        loaderStatus.innerHTML = `<span style="color:#ef4444">Ошибка: ${e.message}<br>Проверьте, обновлена ли версия развертывания в Google Apps Script.</span>`;
+        console.error("Ошибка загрузки:", e);
+        loaderStatus.innerHTML = `<span style="color:#ef4444">Ошибка: ${e.message}<br>Проверьте, выбрали ли вы "Новая версия" при деплое в Apps Script.</span>`;
     }
 }
 
