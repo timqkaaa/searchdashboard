@@ -169,7 +169,6 @@
 </div>
 
 <script>
-// ССЫЛКИ НА ТВОИ СКРИПТЫ КОМАНД
 const TEAMS_SOURCES = [
     { name: 'Samurai team', url: 'https://script.google.com/macros/s/AKfycbxA3-f--3Df5o14i0WcCDkEHJPLP_NDnkPiIQY3QVrkx1qJlq_rtpkUXdzKvmC2HNjVKA/exec' },
     { name: 'Mozz team', url: 'https://script.google.com/macros/s/AKfycbyXdACbcPRthnFgw7_JuDSsS7KI0pDUR4PfIfI9gkqaBmkDJfwylovHzo6cHUvV8g1hVg/exec' },
@@ -178,42 +177,50 @@ const TEAMS_SOURCES = [
 
 let allData = [];
 
+// Используем безопасный запрос с автоматическим перенаправлением Google
+async function fetchTeamData(url) {
+    const res = await fetch(url, { redirect: 'follow' });
+    if (!res.ok) throw new Error('Network response was not ok');
+    return await res.json();
+}
+
 async function loadData() {
-    const loaderStatus = document.getElementById('loaderStatus');
+    const loader = document.getElementById('loader');
+    if (loader) loader.style.display = 'flex';
+    
     const allSheets = new Set();
+    allData = [];
 
     for (const team of TEAMS_SOURCES) {
         try {
-            loaderStatus.innerText = `Загружаем: ${team.name}...`;
-            const response = await fetch(team.url);
-            const json = await response.json();
+            const json = await fetchTeamData(team.url);
 
-            // Присваиваем имя команды
-            const teamData = (json.data || []).map(row => ({
-                ...row,
-                team: team.name
-            }));
+            if (json && json.data) {
+                const teamData = json.data.map(row => ({
+                    ...row,
+                    team: team.name
+                }));
+                allData.push(...teamData);
+            }
 
-            allData.push(...teamData);
-
-            // Собираем месяцы
-            if (json.sheets) {
+            if (json && json.sheets) {
                 json.sheets.forEach(s => allSheets.add(s));
             }
         } catch (e) {
-            console.error(`Ошибка при загрузке данных для ${team.name}:`, e);
+            console.error(`Ошибка загрузки команды ${team.name}:`, e);
         }
     }
 
-    // Заполняем фильтр месяцев
     const sheetFilter = document.getElementById('sheetFilter');
+    sheetFilter.innerHTML = '<option value="all">Все месяцы</option>';
     Array.from(allSheets).sort().forEach(s => {
         sheetFilter.innerHTML += `<option value="${s}">${s}</option>`;
     });
 
     initFilters();
     applyFilters();
-    document.getElementById('loader').style.display = 'none';
+    
+    if (loader) loader.style.display = 'none';
 }
 
 function toggleTheme() {
@@ -234,6 +241,7 @@ function initFilters() {
 
 function fillSelect(id, items) {
     const el = document.getElementById(id);
+    el.innerHTML = '<option value="all">Все</option>';
     items.forEach(item => { el.innerHTML += `<option value="${item}">${item}</option>`; });
 }
 
@@ -269,6 +277,11 @@ function renderKPIs(data) {
 function renderCards(data) {
     const grid = document.getElementById('suppliersGrid');
     grid.innerHTML = '';
+
+    if (data.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-sub); font-size: 1.1rem; padding: 40px;">Данных не найдено или таблицы пусты. Проверьте разрешения Google Apps Script.</div>';
+        return;
+    }
 
     data.forEach(item => {
         const card = document.createElement('div');
