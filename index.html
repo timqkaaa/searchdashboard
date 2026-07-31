@@ -164,42 +164,41 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzInmHoPrrpfVStOmt-Q
 
 let allData = [];
 
-async function loadData() {
-    const loaderStatus = document.getElementById('loaderStatus');
+// Глобальная функция-колбэк, которую вызовет Google Apps Script
+window.onGoogleDataReceived = function(json) {
     const loader = document.getElementById('loader');
+    
+    allData = (json.data || []).map(row => ({
+        ...row,
+        team: 'Gerille team'
+    }));
 
-    try {
-        // Проксируем запрос через AllOrigins для обхода CORS и безопасного редиректа Google
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(SCRIPT_URL)}`;
-        const response = await fetch(proxyUrl);
-        
-        if (!response.ok) {
-            throw new Error(`Ошибка HTTP: ${response.status}`);
-        }
-        
-        const json = await response.json();
-        
-        allData = (json.data || []).map(row => ({
-            ...row,
-            team: 'Gerille team'
-        }));
-
-        const sheetFilter = document.getElementById('sheetFilter');
-        sheetFilter.innerHTML = '<option value="all">Все месяцы</option>';
-        if (json.sheets) {
-            json.sheets.forEach(s => {
-                sheetFilter.innerHTML += `<option value="${s}">${s}</option>`;
-            });
-        }
-
-        initFilters();
-        applyFilters();
-        loader.style.display = 'none';
-
-    } catch (e) {
-        console.error("Ошибка загрузки:", e);
-        loaderStatus.innerHTML = `<span style="color:#ef4444">Ошибка при запросе: ${e.message}</span>`;
+    const sheetFilter = document.getElementById('sheetFilter');
+    sheetFilter.innerHTML = '<option value="all">Все месяцы</option>';
+    if (json.sheets) {
+        json.sheets.forEach(s => {
+            sheetFilter.innerHTML += `<option value="${s}">${s}</option>`;
+        });
     }
+
+    initFilters();
+    applyFilters();
+    if (loader) loader.style.display = 'none';
+};
+
+function loadData() {
+    // Создаем элемент <script> напрямую в DOM для обхода любых CORS блокировок
+    const script = document.createElement('script');
+    script.src = SCRIPT_URL + '?callback=onGoogleDataReceived';
+    
+    script.onerror = function() {
+        const loaderStatus = document.getElementById('loaderStatus');
+        if (loaderStatus) {
+            loaderStatus.innerHTML = '<span style="color:#ef4444">Ошибка сети: Google отклонил запрос. Убедитесь, что в Apps Script доступ настроен как "Все" (Anyone).</span>';
+        }
+    };
+
+    document.body.appendChild(script);
 }
 
 function toggleTheme() {
@@ -311,6 +310,7 @@ function renderCards(data) {
     });
 }
 
+// Запускаем загрузку
 loadData();
 </script>
 </body>
