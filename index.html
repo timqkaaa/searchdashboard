@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supplier Tracking Dashboard | Teams Monitor</title>
+    <title>Gerille Team | Supplier Tracking</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -49,7 +49,7 @@
             position: fixed; top:0; left:0; width:100%; height:100%;
             background: var(--bg-color); display: flex; flex-direction: column; justify-content: center;
             align-items: center; font-size: 1.3rem; font-weight: 800; z-index: 999;
-            color: var(--accent); gap: 15px;
+            color: var(--accent); gap: 15px; text-align: center; padding: 20px;
         }
 
         .controls {
@@ -116,13 +116,13 @@
 <body>
 
 <div id="loader" class="loader-overlay">
-    <div>Загрузка данных из 3-х команд...</div>
-    <div style="font-size: 0.9rem; color: var(--text-sub);" id="loaderStatus">Связываемся со скриптами...</div>
+    <div>Загрузка данных Gerille team...</div>
+    <div style="font-size: 0.9rem; color: var(--text-sub);" id="loaderStatus">Связываемся с Google Таблицей...</div>
 </div>
 
 <div class="container">
     <header>
-        <h1>Мониторинг Поставщиков</h1>
+        <h1>Мониторинг Поставщиков (Gerille team)</h1>
         <button class="theme-btn" onclick="toggleTheme()">🌓 Сменить тему</button>
     </header>
 
@@ -130,15 +130,6 @@
         <div class="filter-group">
             <label>Месяц (Лист)</label>
             <select id="sheetFilter" onchange="applyFilters()"><option value="all">Все месяцы</option></select>
-        </div>
-        <div class="filter-group">
-            <label>Команда</label>
-            <select id="teamFilter" onchange="applyFilters()">
-                <option value="all">Все Команды</option>
-                <option value="Samurai team">Samurai team</option>
-                <option value="Mozz team">Mozz team</option>
-                <option value="Gerille team">Gerille team</option>
-            </select>
         </div>
         <div class="filter-group">
             <label>Сотрудник</label>
@@ -169,58 +160,46 @@
 </div>
 
 <script>
-const TEAMS_SOURCES = [
-    { name: 'Samurai team', url: 'https://script.google.com/macros/s/AKfycbxA3-f--3Df5o14i0WcCDkEHJPLP_NDnkPiIQY3QVrkx1qJlq_rtpkUXdzKvmC2HNjVKA/exec' },
-    { name: 'Mozz team', url: 'https://script.google.com/macros/s/AKfycbyXdACbcPRthnFgw7_JuDSsS7KI0pDUR4PfIfI9gkqaBmkDJfwylovHzo6cHUvV8g1hVg/exec' },
-    { name: 'Gerille team', url: 'https://script.google.com/macros/s/AKfycbzkXgpifTUhydAUananHcP1y_IRGyHQBLyOz2HP8idgfcFKWDfh0EQcWSzaXeHlBOLvNA/exec' }
-];
+// ТВОЯ НОВАЯ ССЫЛКА ДЛЯ GERILLE TEAM
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzInmHoPrrpfVStOmt-QZGliNEKeSnkcmmNA3lVIzA3RGRZR9n2ZnQi5h8EJXr1FRBtCQ/exec';
 
 let allData = [];
 
-// Используем безопасный запрос с автоматическим перенаправлением Google
-async function fetchTeamData(url) {
-    const res = await fetch(url, { redirect: 'follow' });
-    if (!res.ok) throw new Error('Network response was not ok');
-    return await res.json();
-}
-
 async function loadData() {
+    const loaderStatus = document.getElementById('loaderStatus');
     const loader = document.getElementById('loader');
-    if (loader) loader.style.display = 'flex';
-    
-    const allSheets = new Set();
-    allData = [];
 
-    for (const team of TEAMS_SOURCES) {
-        try {
-            const json = await fetchTeamData(team.url);
-
-            if (json && json.data) {
-                const teamData = json.data.map(row => ({
-                    ...row,
-                    team: team.name
-                }));
-                allData.push(...teamData);
-            }
-
-            if (json && json.sheets) {
-                json.sheets.forEach(s => allSheets.add(s));
-            }
-        } catch (e) {
-            console.error(`Ошибка загрузки команды ${team.name}:`, e);
+    try {
+        const response = await fetch(SCRIPT_URL, { redirect: 'follow' });
+        
+        if (!response.ok) {
+            throw new Error(`Ошибка HTTP: ${response.status}`);
         }
+        
+        const json = await response.json();
+        
+        allData = (json.data || []).map(row => ({
+            ...row,
+            team: 'Gerille team'
+        }));
+
+        // Заполняем месяцы
+        const sheetFilter = document.getElementById('sheetFilter');
+        sheetFilter.innerHTML = '<option value="all">Все месяцы</option>';
+        if (json.sheets) {
+            json.sheets.forEach(s => {
+                sheetFilter.innerHTML += `<option value="${s}">${s}</option>`;
+            });
+        }
+
+        initFilters();
+        applyFilters();
+        loader.style.display = 'none';
+
+    } catch (e) {
+        console.error(" Ошибка загрузки:", e);
+        loaderStatus.innerHTML = `<span style="color:#ef4444">Ошибка: ${e.message}<br>Проверьте, обновлена ли версия развертывания в Google Apps Script.</span>`;
     }
-
-    const sheetFilter = document.getElementById('sheetFilter');
-    sheetFilter.innerHTML = '<option value="all">Все месяцы</option>';
-    Array.from(allSheets).sort().forEach(s => {
-        sheetFilter.innerHTML += `<option value="${s}">${s}</option>`;
-    });
-
-    initFilters();
-    applyFilters();
-    
-    if (loader) loader.style.display = 'none';
 }
 
 function toggleTheme() {
@@ -247,7 +226,6 @@ function fillSelect(id, items) {
 
 function applyFilters() {
     const sheet = document.getElementById('sheetFilter').value;
-    const team = document.getElementById('teamFilter').value;
     const emp = document.getElementById('employeeFilter').value;
     const geo = document.getElementById('geoFilter').value;
     const source = document.getElementById('sourceFilter').value;
@@ -255,12 +233,11 @@ function applyFilters() {
 
     const filtered = allData.filter(d => {
         const matchSheet = sheet === 'all' || d.sheetName === sheet;
-        const matchTeam = team === 'all' || d.team === team;
         const matchEmp = emp === 'all' || d.employee === emp;
         const matchGeo = geo === 'all' || d.geo === geo;
         const matchSource = source === 'all' || d.source === source;
         const matchSearch = (d.supplier || '').toString().toLowerCase().includes(search);
-        return matchSheet && matchTeam && matchEmp && matchGeo && matchSource && matchSearch;
+        return matchSheet && matchEmp && matchGeo && matchSource && matchSearch;
     });
 
     renderKPIs(filtered);
@@ -279,7 +256,7 @@ function renderCards(data) {
     grid.innerHTML = '';
 
     if (data.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-sub); font-size: 1.1rem; padding: 40px;">Данных не найдено или таблицы пусты. Проверьте разрешения Google Apps Script.</div>';
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-sub); font-size: 1.1rem; padding: 40px;">Данных не найдено или таблица пуста</div>';
         return;
     }
 
